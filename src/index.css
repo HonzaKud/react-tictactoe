@@ -1,0 +1,5 @@
+/* Tailwind v4 – jediný import */
+@import "tailwindcss";
+
+/* Volitelné: plná výška kořene */
+html, body, #root { height: 100%; }

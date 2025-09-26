@@ -1,0 +1,31 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build výstupy
+dist/
+dist-ssr/
+build/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.sw?
+.DS_Store
+
+# Typings a cache
+*.tsbuildinfo
+*.tgz
+.cache/
+vite.config.ts.timestamp-*
+
+# Lokální env soubory
+.env
+.env.local
+.env.*.local
