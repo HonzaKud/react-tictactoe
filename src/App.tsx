@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Board from "./components/Board";
 import { selectAiMove, type Level } from "./game/ai";
 import {
   EMPTY_BOARD,
@@ -12,155 +13,154 @@ import {
 } from "./game/rules";
 
 export default function App() {
+  // --- Stav hry ---
   const [board, setBoard] = useState<BoardType>([...EMPTY_BOARD]);
   const [level, setLevel] = useState<Level>("medium");
   const [playerIsX, setPlayerIsX] = useState(true);
-  const [alternateStarter] = useState(true);
-  const [playerStartsNext, setPlayerStartsNext] = useState(true);
-  const [scores, setScores] = useState({ player: 0, draws: 0, computer: 0 });
+  const [alternateStarter, setAlternateStarter] = useState(true);
+  const [score, setScore] = useState({ player: 0, ai: 0, draw: 0 });
+
+  // --- Odvozené hodnoty ---
+  const you: Mark = playerIsX ? "X" : "O";
+  const ai: Mark = playerIsX ? "O" : "X";
 
   const winner = useMemo(() => calculateWinner(board), [board]);
-  const winLine = useMemo(() => findWinningLine(board), [board]);
+  const winningLine = useMemo(() => findWinningLine(board), [board]);
   const full = useMemo(() => isBoardFull(board), [board]);
-
-  const playerMark: Mark = playerIsX ? "X" : "O";
-  const computerMark: Mark = playerIsX ? "O" : "X";
-  const turn: Mark = currentTurn(board);
-  const playersTurn = turn === playerMark;
   const gameOver = !!winner || full;
 
-  // hráč klikne
-  function handleClick(i: number) {
-    if (gameOver || !playersTurn || board[i] !== null) return;
-    setBoard((b) => withMove(b, i, playerMark));
-  }
-
-  // AI tah
+  // --- Přičtení skóre jen jednou po konci hry ---
+  const prevGameOver = useRef(false);
   useEffect(() => {
-    if (gameOver || playersTurn) return;
+    if (!prevGameOver.current && gameOver) {
+      setScore((s) => {
+        if (winner === you) return { ...s, player: s.player + 1 };
+        if (winner === ai) return { ...s, ai: s.ai + 1 };
+        return { ...s, draw: s.draw + 1 };
+      });
+    }
+    prevGameOver.current = gameOver;
+  }, [gameOver, winner, you, ai]);
+
+  // --- AI tah ---
+  const playersTurn = useMemo(() => currentTurn(board) === you, [board, you]);
+  useEffect(() => {
+    if (gameOver) return;
+    if (playersTurn) return;
+
     const id = setTimeout(() => {
-      const move = selectAiMove(board, computerMark, level);
-      if (move !== null) setBoard((b) => withMove(b, move, computerMark));
-    }, 250);
+      const move = selectAiMove(board, ai, level);
+      if (move !== null) {
+        setBoard((b) => withMove(b, move, ai));
+      }
+    }, 350); // malá prodleva pro UX
     return () => clearTimeout(id);
-  }, [playersTurn, gameOver, board, computerMark, level]);
+  }, [board, ai, level, playersTurn, gameOver]);
 
-  // po konci hry → skóre
-  useEffect(() => {
-    if (!gameOver) return;
-    if (winner === playerMark) setScores((s) => ({ ...s, player: s.player + 1 }));
-    else if (winner === computerMark) setScores((s) => ({ ...s, computer: s.computer + 1 }));
-    else setScores((s) => ({ ...s, draws: s.draws + 1 }));
-  }, [gameOver, winner, playerMark, computerMark]);
+  // --- Handlery ---
+  const handleSelect = (index: number) => {
+    if (gameOver) return;
+    if (!playersTurn) return;
+    if (board[index] !== null) return;
+    setBoard((b) => withMove(b, index, you));
+  };
 
-  function newGame() {
-    const starterIsPlayer = alternateStarter ? !playerStartsNext : playerStartsNext;
+  const newGame = (rotateStarter: boolean) => {
     setBoard([...EMPTY_BOARD]);
-    setPlayerIsX(starterIsPlayer); // X vždy začíná
-    setPlayerStartsNext((v) => (alternateStarter ? !v : v));
-  }
-
-  function resetScores() {
-    setScores({ player: 0, draws: 0, computer: 0 });
-  }
-
-  const status = winner
-    ? winner === playerMark
-      ? "Vyhrál jsi! 🎉"
-      : "Vyhrál počítač. 🤖"
-    : full
-    ? "Remíza."
-    : playersTurn
-    ? "Na tahu: Ty"
-    : "Počítač přemýšlí…";
+    if (rotateStarter && alternateStarter) {
+      setPlayerIsX((v) => !v);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
-      <div className="mx-auto max-w-3xl px-4 py-10">
-        <header className="mb-6 flex items-center justify-between">
+    <div className="min-h-screen bg-gray-50 py-10 text-gray-900">
+      <div className="mx-auto max-w-xl rounded-3xl bg-white p-6 shadow">
+        <h1 className="text-center text-2xl font-bold">Piškvorky 3×3</h1>
+
+        {/* Panel: skóre a nastavení */}
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border p-3 text-center">
+            <div className="text-xs uppercase text-gray-500">Hráč</div>
+            <div className="text-2xl font-semibold">{score.player}</div>
+          </div>
+          <div className="rounded-2xl border p-3 text-center">
+            <div className="text-xs uppercase text-gray-500">Remízy</div>
+            <div className="text-2xl font-semibold">{score.draw}</div>
+          </div>
+          <div className="rounded-2xl border p-3 text-center">
+            <div className="text-xs uppercase text-gray-500">Počítač</div>
+            <div className="text-2xl font-semibold">{score.ai}</div>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <label className="flex items-center gap-2">
+            <span className="text-sm">Obtížnost:</span>
+            <select
+              value={level}
+              onChange={(e) => setLevel(e.target.value as Level)}
+              className="rounded-xl border px-2 py-1"
+            >
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard (minimax)</option>
+            </select>
+          </label>
+
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={alternateStarter}
+              onChange={(e) => setAlternateStarter(e.target.checked)}
+            />
+            <span className="text-sm">Střídat, kdo začíná</span>
+          </label>
+
+          <div className="flex items-center gap-2">
+            <button
+              className="rounded-xl border px-3 py-1 hover:bg-gray-50"
+              onClick={() => newGame(false)}
+            >
+              Nová hra
+            </button>
+            <button
+              className="rounded-xl border px-3 py-1 hover:bg-gray-50"
+              onClick={() => newGame(true)}
+            >
+              Nová hra &amp; prohodit start
+            </button>
+          </div>
+        </div>
+
+        {/* Stav hry */}
+        <div className="mt-3 text-center text-sm text-gray-600">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Piškvorky 3×3</h1>
-            <p className="text-sm text-gray-600">Hráč vs. Počítač • střídání, kdo začíná</p>
+            Ty hraješ: <span className="font-semibold">{you}</span> &nbsp;|&nbsp; PC:{" "}
+            <span className="font-semibold">{ai}</span>
           </div>
-
-          <div className="flex items-center gap-3">
-            <span className="rounded-full border px-2 py-1 text-xs">
-              Jsi: <strong>{playerMark}</strong>
-            </span>
-            <label className="text-sm">
-              Obtížnost:{" "}
-              <select
-                className="rounded-md border px-2 py-1 text-sm"
-                value={level}
-                onChange={(e) => setLevel(e.target.value as Level)}
-              >
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
-              </select>
-            </label>
-          </div>
-        </header>
-
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div className="font-medium">{status}</div>
-          <div className="flex gap-2">
-            <button
-              onClick={newGame}
-              className="rounded-xl border bg-white px-4 py-2 text-sm shadow-sm hover:bg-gray-100"
-              title="Nová hra (střídání startu)"
-            >
-              Nová hra (střídání startu)
-            </button>
-            <button
-              onClick={resetScores}
-              className="rounded-xl border bg-white px-4 py-2 text-sm shadow-sm hover:bg-gray-100"
-            >
-              Resetovat skóre
-            </button>
+          <div className="mt-1">
+            {gameOver ? (
+              winner ? (
+                <span className="font-medium">
+                  Vyhrál {winner === you ? "hráč" : "počítač"} ({winner})
+                </span>
+              ) : (
+                <span className="font-medium">Remíza</span>
+              )
+            ) : playersTurn ? (
+              <span className="font-medium">Jsi na tahu…</span>
+            ) : (
+              <span className="font-medium">Počítač přemýšlí…</span>
+            )}
           </div>
         </div>
 
-        {/* Board */}
-        <div className="mx-auto grid max-w-sm grid-cols-3 gap-2">
-          {board.map((cell, i) => {
-            const highlight =
-              winLine && (winLine as number[]).includes(i) ? "border-green-500" : "border-gray-200";
-            const canHover = !gameOver && playersTurn && cell === null;
-            return (
-              <button
-                key={i}
-                onClick={() => handleClick(i)}
-                disabled={cell !== null || gameOver || !playersTurn}
-                className={[
-                  "aspect-square rounded-2xl border bg-white text-4xl font-bold shadow-sm",
-                  "flex items-center justify-center select-none",
-                  highlight,
-                  canHover ? "hover:bg-gray-50" : "opacity-100",
-                ].join(" ")}
-              >
-                {cell ?? ""}
-              </button>
-            );
-          })}
+        {/* Hrací pole */}
+        <div className="mt-5 grid place-items-center">
+          <Board board={board} onSelect={handleSelect} winningLine={winningLine} />
         </div>
 
-        {/* Score */}
-        <section className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border bg-white p-4 text-center shadow-sm">
-            <div className="text-sm text-gray-600">Hráč ({playerMark})</div>
-            <div className="text-2xl font-bold">{scores.player}</div>
-          </div>
-          <div className="rounded-2xl border bg-white p-4 text-center shadow-sm">
-            <div className="text-sm text-gray-600">Remízy</div>
-            <div className="text-2xl font-bold">{scores.draws}</div>
-          </div>
-          <div className="rounded-2xl border bg-white p-4 text-center shadow-sm">
-            <div className="text-sm text-gray-600">Počítač ({computerMark})</div>
-            <div className="text-2xl font-bold">{scores.computer}</div>
-          </div>
-        </section>
-
+        {/* Nápověda */}
         <details className="mt-6 rounded-2xl border bg-white p-4 text-sm text-gray-700 shadow-sm">
           <summary className="cursor-pointer select-none font-medium text-gray-900">
             Jak to funguje

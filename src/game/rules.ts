@@ -41,11 +41,7 @@ export function findWinningLine(board: Board): number[] | null {
 
 // Je hrací pole plné?
 export function isFull(board: Board): boolean {
-  // je plné, když nikde není null
-  for (let i = 0; i < board.length; i++) {
-    if (board[i] === null) return false;
-  }
-  return true;
+  return board.every((c) => c !== null);
 }
 
 // Indexy prázdných polí
