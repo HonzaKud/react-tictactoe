@@ -15,7 +15,7 @@ export default function App() {
   const [board, setBoard] = useState<BoardType>([...EMPTY_BOARD]);
   const [level, setLevel] = useState<Level>("medium");
   const [playerIsX, setPlayerIsX] = useState(true);
-  const [alternateStarter, setAlternateStarter] = useState(true);
+  const [alternateStarter] = useState(true);
   const [playerStartsNext, setPlayerStartsNext] = useState(true);
   const [scores, setScores] = useState({ player: 0, draws: 0, computer: 0 });
 
