@@ -68,3 +68,11 @@ export function withMove(board: Board, idx: number, mark: Mark): Board {
   next[idx] = mark;
   return next;
 }
+
+export function other(mark: Mark): Mark {
+  return mark === "X" ? "O" : "X";
+}
+
+export function isTurn(board: Board, mark: Mark): boolean {
+  return currentTurn(board) === mark;
+}
